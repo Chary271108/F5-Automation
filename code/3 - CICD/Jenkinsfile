@@ -1,0 +1,53 @@
+pipeline {
+    agent any 
+    environment {
+        PATH = "/usr/local/bin:/bin:/usr/bin:/usr/local/sbin:/usr/sbin:/sbin:/opt/aws/bin"
+        NAME = "${params.APP_NAME ? 'params.APP_NAME' : 'cicd_demo_test'}"
+        GIT_REPO_URL = "${params.GIT_REPO_URL ? 'params.GIT_REPO_URL' : 'https://github.com/codygreen/cicd_demo_app.git'}"
+        SSH_KEYFILE = "~/.ssh/cody-key"
+    }
+    stages {
+        stage('Clone Repository') { 
+            steps {
+                sh ' rm -rf ./*'
+                sh 'git clone https://github.com/codygreen/Automation_Webinar.git'
+            }
+        }
+        stage('Deploy Web App and BIG-IP') { 
+            steps {
+                dir("Automation_Webinar/code/3 - CICD") {
+                    sh 'export TF_VAR_name=${NAME}'
+                    echo NAME
+                    sh 'terraform get --update'
+                    sh 'terraform init' 
+                    sh 'terraform apply --auto-approve'
+                }
+            }
+        }
+        stage('Configure Web App') {
+            steps {
+                echo NAME               
+                echo GIT_REPO_URL
+                //TODO check out repo on remote box and configure NGINX
+                dir("Automation_Webinar/code/3 - CICD") {
+                    sh 'ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i ./inventory ./demo-app.yaml --extra-vars "NAME=${NAME} GIT_REPO_URL=${GIT_REPO_URL}"'
+                }
+            }
+        }
+
+        stage('Configure BIG-IP') {
+            steps {
+                dir("Automation_Webinar/code/3 - CICD") {
+                    sh 'export BIGIP=`terraform output private_ip`'
+                    // sh 'export BIGIP=`terraform output --module=big-ip private_ip`'
+                    // sh 'export BIGIP_PASSWORD=`terraform output --module=big-ip password`'
+                    // echo BIGIP
+                    // echo BIGIP_PASSWORD
+                    // sh 'ansible-playbook -i ./inventory ./config-bigip.yaml --extra-vars "BIGIP=${BIGIP} BIGIP_PASSWORD=${BIGIP_PASSWORD}"'
+                    // sh 'ansible-playbook -i ./inventory ./config-bigip.yaml --extra-vars "BIGIP=`terraform output --module=big-ip private_ip` BIGIP_PASSWORD=`terraform output --module=big-ip password` SSH_KEYFILE=${SSH_KEYFILE}"'
+                     sh 'ANSIBLE_HOST_KEY_CHECKING=false ansible-playbook -i ./inventory ./config-bigip.yaml --extra-vars "BIGIP=`terraform output private_ip` BIGIP_PASSWORD=`terraform output password` SSH_KEYFILE=${SSH_KEYFILE}"'
+                }
+            }
+        }
+    }
+}

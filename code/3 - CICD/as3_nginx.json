@@ -1,0 +1,39 @@
+{
+    "class": "ADC",
+    "schemaVersion": "3.5.0",
+    "label": "AWS Service Discovery",
+    "remark": "Simple HTTP application with a pool using AWS service discovery",
+    "id": "Sample_sd_01",
+    "Sample_sd_01": {
+        "class": "Tenant",
+        "verifiers": {
+
+        },
+        "A1": {
+            "class": "Application",
+            "template": "http",
+            "serviceMain": {
+                "class": "Service_HTTP",
+                "virtualAddresses": [
+                    "0.0.0.0"
+                ],
+                "pool": "web_pool"
+            },
+            "web_pool": {
+                "class": "Pool",
+                "monitors": [
+                    "http"
+                ],
+                "members": [{
+                    "servicePort": 80,
+                    "addressDiscovery": "aws",
+                    "updateInterval": 1,
+                    "tagKey": "ScaleGroup",
+                    "tagValue": "lab",
+                    "addressRealm": "private",
+                    "region": "us-east-2"
+                }]
+            }
+        }
+    }
+}
